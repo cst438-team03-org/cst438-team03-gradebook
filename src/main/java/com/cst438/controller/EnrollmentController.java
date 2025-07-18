@@ -12,6 +12,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.security.Principal;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 public class EnrollmentController {
@@ -36,14 +37,39 @@ public class EnrollmentController {
     @GetMapping("/sections/{sectionNo}/enrollments")
     public List<EnrollmentDTO> getEnrollments(
             @PathVariable("sectionNo") int sectionNo, Principal principal ) {
-				
-		// check that the sectionNo belongs to the logged in instructor.
-		
+
+        Section section = sectionRepository.findById(sectionNo).orElse(null);
+        if (section == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Section not found.");
+        }
+        // check that the sectionNo belongs to the logged in instructor.
+        if (!section.getInstructorEmail().equals(principal.getName())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not instructor for this section.");
+        }
 		// use the EnrollmentRepository findEnrollmentsBySectionNoOrderByStudentName
 		// to get a list of Enrollments for the given sectionNo.
 		// Return a list of EnrollmentDTOs
 
-        return null;
+        List<Enrollment> enrollments = enrollmentRepository.findEnrollmentsBySectionNoOrderByStudentName(sectionNo);
+
+        // Convert to DTOs
+        return enrollments.stream().map(e -> new EnrollmentDTO(
+                e.getEnrollmentId(),
+                e.getGrade(),
+                e.getStudent().getId(),
+                e.getStudent().getName(),
+                e.getStudent().getEmail(),
+                section.getCourse().getCourseId(),
+                section.getCourse().getTitle(),
+                section.getSectionId(),
+                section.getSectionNo(),
+                section.getBuilding(),
+                section.getRoom(),
+                section.getTimes(),
+                section.getCourse().getCredits(),
+                section.getTerm().getYear(),
+                section.getTerm().getSemester()
+        )).collect(Collectors.toList());
     }
 
     // instructor updates enrollment grades

@@ -5,8 +5,9 @@ insert into term (term_id, tyear, semester, add_date, add_deadline, drop_deadlin
 insert into user_table (id, name, email, password, type) values
  (1, 'admin', 'admin@csumb.edu', '$2a$10$8cjz47bjbR4Mn8GMg9IZx.vyjhLXR/SKKMSZ9.mP9vpMu0ssKi8GW' , 'ADMIN'),
  (2, 'sam', 'sam@csumb.edu', '$2a$10$B3E9IWa9fCy1SaMzfg1czu312d0xRAk1OU2sw5WOE7hs.SsLqGE9O', 'STUDENT'),
- (3, 'ted', 'ted@csumb.edu', '$2a$10$YU83ETxvPriw/t2Kd2wO8u8LoKRtl9auX2MsUAtNIIQuKROBvltdy', 'INSTRUCTOR');
-
+ (3, 'ted', 'ted@csumb.edu', '$2a$10$YU83ETxvPriw/t2Kd2wO8u8LoKRtl9auX2MsUAtNIIQuKROBvltdy', 'INSTRUCTOR'),
+ (4, 'joe', 'joe@csumb.edu', '$2y$10$IQbLAg1d4ZWh8Fvw69DTu.aJ2L3eCM2A39q4z2iaM6A3EfoY5x49a', 'STUDENT'),
+ (5, 'david', 'david@csumb.edu', '$2y$10$zjO/HDm4qGWl0aZEKmJRNODLS4HzPMPvhwCdFW4gVEjKO1Hsb.KhC', 'INSTRUCTOR');
 
 insert into course values
 ('cst336', 'Internet Programming', 4),
@@ -16,8 +17,11 @@ insert into course values
 ('cst499', 'Capstone', 4);
 
 insert into section (section_no, course_id, section_id, term_id, building, room, times, instructor_email) values
-(1, 'cst489', 1, 10, '90', 'B104', 'W F 10-11', 'ted@csumb.edu');
+(1, 'cst489', 1, 10, '90', 'B104', 'W F 10-11', 'ted@csumb.edu'),
+(2, 'cst363', 2, 9, '30', 'B420', 'T H 3-5', 'david@csumb.edu');
 
 
 -- INSERT TEST
 insert into enrollment (enrollment_id, grade, section_no, user_id) values (100, 'B', 1, 2);
+
+insert into enrollment (enrollment_id, grade, section_no, user_id) values (101, 'D', 2, 4);

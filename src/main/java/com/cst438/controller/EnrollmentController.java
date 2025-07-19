@@ -51,7 +51,6 @@ public class EnrollmentController {
 		// Return a list of EnrollmentDTOs
 
         List<Enrollment> enrollments = enrollmentRepository.findEnrollmentsBySectionNoOrderByStudentName(sectionNo);
-
         // Convert to DTOs
         return enrollments.stream().map(e -> new EnrollmentDTO(
                 e.getEnrollmentId(),
@@ -76,10 +75,28 @@ public class EnrollmentController {
     @PreAuthorize("hasAuthority('SCOPE_ROLE_INSTRUCTOR')")
     @PutMapping("/enrollments")
     public void updateEnrollmentGrade(@Valid @RequestBody List<EnrollmentDTO> dtoList, Principal principal) {
-		// for each EnrollmentDTO 
-        //    check that logged in user is instructor for the section
-        //    update the enrollment grade
-        //    send message to Registrar service for grade update
+
+        String instructorEmail = principal.getName();
+        // for each EnrollmentDTO
+        for (EnrollmentDTO dto : dtoList) {
+            Enrollment enrollment = enrollmentRepository.findById(dto.enrollmentId()).orElse(null);
+
+            if (enrollment == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Enrollment not found: " + dto.enrollmentId());
+            }
+            //    check that logged in user is instructor for the section
+            Section section = enrollment.getSection();
+            if (section == null || !section.getInstructorEmail().equals(instructorEmail)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not authorized to update grades for this section.");
+            }
+
+            //    update the enrollment grade
+            enrollment.setGrade(dto.grade());
+            enrollmentRepository.save(enrollment);
+
+            //    send message to Registrar service for grade update
+            registrar.sendMessage("finalGrade", dto);
+        }
        
     }
 }

@@ -11,7 +11,9 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.security.Principal;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
@@ -95,7 +97,10 @@ public class EnrollmentController {
             enrollmentRepository.save(enrollment);
 
             //    send message to Registrar service for grade update
-            registrar.sendMessage("finalGrade", dto);
+            Map<String, Object> message = new HashMap<>();
+            message.put("enrollmentId", dto.enrollmentId());
+            message.put("grade", dto.grade());
+            registrar.sendMessage("updateEnrollment", message);
         }
        
     }

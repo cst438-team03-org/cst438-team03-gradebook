@@ -13,6 +13,7 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.http.MediaType;
 
 import java.util.Collections;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -141,7 +142,7 @@ public class EnrollmentControllerUnitTest {
 
         // Verify message sent to registrar
         org.mockito.Mockito.verify(registrarServiceProxy)
-                .sendMessage(org.mockito.ArgumentMatchers.eq("finalGrade"), org.mockito.ArgumentMatchers.any(EnrollmentDTO.class));
+                .sendMessage(org.mockito.ArgumentMatchers.eq("updateEnrollment"), org.mockito.ArgumentMatchers.any(Map.class));
 
         // Attempt to update Joe's enrollment (enrollmentId=101, studentId=4, sectionNo=2, which Ted does NOT teach)
         EnrollmentDTO joesEnrollment = new EnrollmentDTO(

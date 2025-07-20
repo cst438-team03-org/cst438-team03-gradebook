@@ -22,8 +22,6 @@ public class EnrollmentControllerUnitTest {
     @Autowired
     private WebTestClient webTestClient;
 
-    @Autowired
-    private EnrollmentRepository enrollmentRepository;
 
     @MockitoBean
     RegistrarServiceProxy registrarServiceProxy;
@@ -64,21 +62,99 @@ public class EnrollmentControllerUnitTest {
 
     @Test
     public void updateEnrollmentGradeTest() throws Exception {
-    //TODO COMPLETE THIS
-        //Login as ted
-        //check that logged in user is instructor for the section
-        //      Check that sams grade is 'B'
-        //      Update sams grade to be 'D'
-        //      Check that sams grade is now 'D'
-        //      example json
-//        {
-//            "enrollmentId": 0,
-//                "grade": "C"
-//        }
-        //  Verify that send message to Registrar service for grade update
+        // Login as Ted (instructor)
+        String email = "ted@csumb.edu";
+        String password = "ted2025";
 
-        // Try to update Joes grade to 'F'
-        // Check that the response is "You are not authorized to update grades for this section."
+        EntityExchangeResult<LoginDTO> loginResult = webTestClient.get().uri("/login")
+                .headers(headers -> headers.setBasicAuth(email, password))
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(LoginDTO.class)
+                .returnResult();
+
+        LoginDTO login = loginResult.getResponseBody();
+        assertNotNull(login, "LoginDTO should not be null");
+        String jwt = login.jwt();
+        assertNotNull(jwt, "JWT token should not be null");
+
+        // Get enrollments for section 1 (Ted's section)
+        EntityExchangeResult<EnrollmentDTO[]> enrollmentsResult = webTestClient.get().uri("/sections/1/enrollments")
+                .headers(headers -> headers.setBearerAuth(jwt))
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(EnrollmentDTO[].class)
+                .returnResult();
+
+        EnrollmentDTO[] enrollments = enrollmentsResult.getResponseBody();
+        assertNotNull(enrollments);
+        assertTrue(enrollments.length > 0);
+
+        // Find Sam's enrollment by studentId=2
+        EnrollmentDTO samsEnrollment = null;
+        for (EnrollmentDTO dto : enrollments) {
+            if (dto.studentId() == 2) {
+                samsEnrollment = dto;
+            }
+        }
+        assertNotNull(samsEnrollment, "Sam's enrollment (id=2) should exist");
+        assertEquals("B", samsEnrollment.grade(), "Sam's initial grade should be B");
+
+        // Update Sam's grade to 'D'
+        EnrollmentDTO updatedSam = new EnrollmentDTO(
+                samsEnrollment.enrollmentId(), "D", samsEnrollment.studentId(),
+                samsEnrollment.name(), samsEnrollment.email(),
+                samsEnrollment.courseId(), samsEnrollment.title(),
+                samsEnrollment.sectionId(), samsEnrollment.sectionNo(),
+                samsEnrollment.building(), samsEnrollment.room(),
+                samsEnrollment.times(), samsEnrollment.credits(),
+                samsEnrollment.year(), samsEnrollment.semester()
+        );
+
+        webTestClient.put().uri("/enrollments")
+                .headers(headers -> headers.setBearerAuth(jwt))
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(Collections.singletonList(updatedSam))
+                .exchange()
+                .expectStatus().isOk();
+
+        // Verify grade was updated by fetching enrollments again
+        EntityExchangeResult<EnrollmentDTO[]> enrollmentsAfterUpdate = webTestClient.get().uri("/sections/1/enrollments")
+                .headers(headers -> headers.setBearerAuth(jwt))
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(EnrollmentDTO[].class)
+                .returnResult();
+
+        EnrollmentDTO[] updatedEnrollments = enrollmentsAfterUpdate.getResponseBody();
+        EnrollmentDTO updatedSamEnrollment = null;
+        for (EnrollmentDTO dto : updatedEnrollments) {
+            if (dto.studentId() == 2) {
+                updatedSamEnrollment = dto;
+            }
+        }
+        assertNotNull(updatedSamEnrollment, "Sam's updated enrollment (id=2) should exist");
+        assertEquals("D", updatedSamEnrollment.grade(), "Sam's grade should be updated to D");
+
+        // Verify message sent to registrar
+        org.mockito.Mockito.verify(registrarServiceProxy)
+                .sendMessage(org.mockito.ArgumentMatchers.eq("finalGrade"), org.mockito.ArgumentMatchers.any(EnrollmentDTO.class));
+
+        // Attempt to update Joe's enrollment (enrollmentId=101, studentId=4, sectionNo=2, which Ted does NOT teach)
+        EnrollmentDTO joesEnrollment = new EnrollmentDTO(
+                101, "F", 4, "joe", "joe@csumb.edu",
+                "cst363", "Introduction to Database",
+                2, 2, "30", "B420", "T H 3-5", 4, 2025, "Spring"
+        );
+
+        webTestClient.put().uri("/enrollments")
+                .headers(headers -> headers.setBearerAuth(jwt))
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(Collections.singletonList(joesEnrollment))
+                .exchange()
+                .expectStatus().isBadRequest();
     }
-
 }

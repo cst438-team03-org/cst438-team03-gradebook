@@ -87,7 +87,7 @@ public class EnrollmentController {
             //    check that logged in user is instructor for the section
             Section section = enrollment.getSection();
             if (section == null || !section.getInstructorEmail().equals(instructorEmail)) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not authorized to update grades for this section.");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You are not authorized to update grades for this section.");
             }
 
             //    update the enrollment grade

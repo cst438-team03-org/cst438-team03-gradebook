@@ -17,3 +17,12 @@ insert into course values
 
 insert into section (section_no, course_id, section_id, term_id, building, room, times, instructor_email) values
 (1, 'cst489', 1, 10, '90', 'B104', 'W F 10-11', 'ted@csumb.edu');
+
+insert into assignment (title, due_date, section_no)
+values ('Final Project', '2025-12-01', 1);
+
+insert into enrollment (enrollment_id, grade, section_no, user_id)
+values (100, 'B', 1, 2);
+
+insert into grade (grade_id, score, assignment_id, enrollment_id)
+values (1, 85, 6000, 100);

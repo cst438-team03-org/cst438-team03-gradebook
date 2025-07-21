@@ -44,7 +44,7 @@ public class GradeControllerUnitTest {
 
         // GET /assignments/1/grades
         EntityExchangeResult<GradeDTO[]> result = webTestClient.get()
-                .uri("/assignments/1/grades")
+                .uri("/assignments/6000/grades")
                 .headers(h -> h.setBearerAuth(jwt))
                 .accept(MediaType.APPLICATION_JSON)
                 .exchange()
@@ -78,7 +78,7 @@ public class GradeControllerUnitTest {
 
         // GET existing grades
         GradeDTO[] grades = webTestClient.get()
-                .uri("/assignments/1/grades")
+                .uri("/assignments/6000/grades")
                 .headers(h -> h.setBearerAuth(jwt))
                 .accept(MediaType.APPLICATION_JSON)
                 .exchange()
@@ -114,7 +114,7 @@ public class GradeControllerUnitTest {
 
         // Confirm via endpoint
         GradeDTO[] after = webTestClient.get()
-                .uri("/assignments/1/grades")
+                .uri("/assignments/6000/grades")
                 .headers(h -> h.setBearerAuth(jwt))
                 .accept(MediaType.APPLICATION_JSON)
                 .exchange()

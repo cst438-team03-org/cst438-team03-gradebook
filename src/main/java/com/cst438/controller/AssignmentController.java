@@ -19,6 +19,9 @@ import java.security.Principal;
 import java.sql.Date;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+
+import static java.util.stream.Collectors.toList;
 
 @RestController
 public class AssignmentController {
@@ -46,10 +49,36 @@ public class AssignmentController {
     public List<SectionDTO> getSectionsForInstructor(
             @RequestParam("year") int year ,
             @RequestParam("semester") String semester,
-            Principal principal)  {
-        // return the Sections that have instructorEmail for the 
-		// logged in instructor user for the given term.
-        return null;
+            Principal principal) {
+
+        String instructorEmail = principal.getName();
+        // Find the instructor's name based on their email
+        User instructor = userRepository.findByEmail(instructorEmail);
+
+        // return the Sections that have instructorEmail for the
+        // logged in instructor user for the given term.
+        List<Section> sections = sectionRepository.findByInstructorEmailAndYearAndSemester(instructorEmail, year, semester);
+
+        // If no sections are found, return an empty list
+        if (sections.isEmpty()){
+            return new ArrayList<>();
+        }
+
+        // Uses a stream to map each Section entity to a SectionDTO
+        return sections.stream()
+                .map(s -> new SectionDTO(
+                        s.getSectionNo(),
+                        s.getTerm().getYear(),
+                        s.getTerm().getSemester(),
+                        s.getCourse().getCourseId(),
+                        s.getCourse().getTitle(),
+                        s.getSectionId(),
+                        s.getBuilding(),
+                        s.getRoom(),
+                        s.getTimes(),
+                        instructor.getName(),
+                        s.getInstructorEmail()))
+                .toList();
     }
 
     // instructor lists assignments for a section.
@@ -58,7 +87,7 @@ public class AssignmentController {
     public List<AssignmentDTO> getAssignments(
             @PathVariable("secNo") int secNo,
             Principal principal) {
-
+        // TODO: List assignments for a section
         // verify that user is the instructor for the section
         //  return list of assignments for the Section
         return null;
@@ -70,7 +99,8 @@ public class AssignmentController {
     public AssignmentDTO createAssignment(
             @Valid @RequestBody AssignmentDTO dto,
             Principal principal) {
-        
+        // TODO: Create an assignment
+
         //  user must be the instructor for the Section
 		//  check that assignment dueDate is between start date and 
 		//  end date of the term
@@ -83,6 +113,8 @@ public class AssignmentController {
     @PutMapping("/assignments")
     @PreAuthorize("hasAuthority('SCOPE_ROLE_INSTRUCTOR')")
     public AssignmentDTO updateAssignment(@Valid @RequestBody AssignmentDTO dto, Principal principal) {
+        // TODO: Update an assignment
+
         //  update Assignment Entity.  only title and dueDate fields can be changed.
         //  user must be instructor of the Section
         return null;
@@ -92,6 +124,8 @@ public class AssignmentController {
     @DeleteMapping("/assignments/{assignmentId}")
     @PreAuthorize("hasAuthority('SCOPE_ROLE_INSTRUCTOR')")
     public void deleteAssignment(@PathVariable("assignmentId") int assignmentId, Principal principal) {
+        // TODO: Delete an assignment
+
         // verify that user is the instructor of the section
         // delete the Assignment entity
         
@@ -104,6 +138,7 @@ public class AssignmentController {
             @RequestParam("year") int year,
             @RequestParam("semester") String semester,
             Principal principal) {
+        // TODO: List assignments for a student
 
         //  return AssignmentStudentDTOs with scores of a 
 		//  Grade entity exists.

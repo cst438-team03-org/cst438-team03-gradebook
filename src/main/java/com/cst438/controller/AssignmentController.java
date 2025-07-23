@@ -210,19 +210,44 @@ public class AssignmentController {
         registrarService.sendMessage("deleteAssignment", assignmentId);
     }
 
-    // student lists their assignments/grades  ordered by due date
+    // student lists their assignments/grades ordered by due date
     @GetMapping("/assignments")
     @PreAuthorize("hasAuthority('SCOPE_ROLE_STUDENT')")
     public List<AssignmentStudentDTO> getStudentAssignments(
             @RequestParam("year") int year,
             @RequestParam("semester") String semester,
             Principal principal) {
-        // TODO: List assignments for a student
 
-        //  return AssignmentStudentDTOs with scores of a 
-		//  Grade entity exists.
-		//  hint: use the GradeRepository findByStudentEmailAndAssignmentId
+        String email = principal.getName();
+        // Assignments are already sorted by due date in the database query
+        List<Assignment> assignments = assignmentRepository.findByStudentEmailAndYearAndSemester(email,year, semester);
+        if (assignments.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        //  Return AssignmentStudentDTOs with scores of a
+        //  Grade entity exists.
         //  If assignment has not been graded, return a null score.
-        return null;
+        List<AssignmentStudentDTO> assignmentStudentDTOs = new ArrayList<>();
+        for (Assignment a : assignments) {
+            // Check if a grade exists for this assignment
+            // If no grade exists, it will be null
+            Grade grade = gradeRepository.findByStudentEmailAndAssignmentId(email, a.getAssignmentId());
+            Integer score = null;
+            if (grade != null){
+                score = grade.getScore();
+            }
+            AssignmentStudentDTO dto = new AssignmentStudentDTO(
+                    a.getAssignmentId(),
+                    a.getTitle(),
+                    a.getDueDate(),
+                    a.getSection().getCourse().getCourseId(),
+                    a.getSection().getSectionId(),
+                    score
+            );
+            assignmentStudentDTOs.add(dto);
+        }
+
+        return assignmentStudentDTOs;
     }
 }

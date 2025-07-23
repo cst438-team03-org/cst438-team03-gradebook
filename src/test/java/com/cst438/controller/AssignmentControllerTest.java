@@ -5,7 +5,6 @@ import com.cst438.dto.*;
 import com.cst438.service.RegistrarServiceProxy;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -13,7 +12,6 @@ import org.springframework.test.web.reactive.server.EntityExchangeResult;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
 import java.sql.Date;
-import java.util.Objects;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -36,6 +34,12 @@ class AssignmentControllerTest {
     // for method that returns void, the mock method records the call but does nothing
     @MockitoBean
     RegistrarServiceProxy registrarService;
+    @Autowired
+    private UserRepository userRepository;
+    @Autowired
+    private EnrollmentRepository enrollmentRepository;
+    @Autowired
+    private GradeRepository gradeRepository;
 
     @Test
     public void getSectionsForInstructor(){
@@ -228,7 +232,7 @@ class AssignmentControllerTest {
                 .expectStatus().isBadRequest();
 
         // Delete the valid assignment
-        EntityExchangeResult<AssignmentDTO> deleteAssignment = client.delete().uri("/assignments/" + validAssignment.id())
+        client.delete().uri("/assignments/" + validAssignment.id())
                 .headers(headers -> headers.setBearerAuth(ted))
                 .accept(MediaType.APPLICATION_JSON)
                 .exchange()
@@ -243,6 +247,53 @@ class AssignmentControllerTest {
 
     @Test
     void getStudentAssignments() {
+        // Enroll student sam in secNo 1
+        String samEmail = "sam@csumb.edu";
+        User student = userRepository.findByEmail(samEmail);
+        assertNotNull(student, "Student with email " + samEmail + " should exist for testing.");
+        Enrollment e = new Enrollment();
+        e.setStudent(student);
+        Section section = sectionRepository.findBySectionNo(1);
+        e.setSection(section);
+        e.setEnrollmentId(1000); // Use a fixed enrollment ID for testing
+        enrollmentRepository.save(e);
+
+        // Login as Ted and create two assignments for section 1
+        String tedEmail = "ted@csumb.edu";
+        String tedPassword = "ted2025";
+        String ted = login(tedEmail, tedPassword);
+        AssignmentDTO a1 = new AssignmentDTO(0, "First Assignment", "2025-10-01", "cst489", 1, 1);
+        createAssignment(a1, ted);
+        AssignmentDTO a2 = new AssignmentDTO(0, "Second Assignment", "2025-10-15", "cst489", 1, 1);
+        a2 = createAssignment(a2, ted);
+        // Give sam a grade for a2
+        Grade g = new Grade();
+        g.setAssignment(assignmentRepository.findById(a2.id()).orElse(null));
+        g.setEnrollment(e);
+        g.setScore(100);
+        // Save the grade to the database
+        gradeRepository.save(g);
+
+        // Login as student sam
+        String samPassword = "sam2025";
+        String sam = login(samEmail, samPassword);
+
+        // Verify that the currently logged-in student can see their assignments
+        EntityExchangeResult<AssignmentStudentDTO[]> studentAssignments = client.get().uri("/assignments?year=2025&semester=Fall")
+                .headers(headers -> headers.setBearerAuth(sam))
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(AssignmentStudentDTO[].class).returnResult();
+
+        AssignmentStudentDTO[] assignmentList = studentAssignments.getResponseBody();
+        assertNotNull(assignmentList, "Assignment list should not be null.");
+        assertTrue(assignmentList.length >= 2, "There should be at least 2 assignments for student sam in section 1.");
+        // Print out the assignments for debugging
+//        for (AssignmentStudentDTO as : assignmentList) {
+//            System.out.println("Assignment ID: " + as.assignmentId() + ", Title: " + as.title() + ", Due Date: " + as.dueDate()
+//                    + ", Score: " + as.score());
+//        }
     }
 
     // Helper methods
@@ -260,8 +311,9 @@ class AssignmentControllerTest {
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody(LoginDTO.class).returnResult();
-        String jwt = login.getResponseBody().jwt();
-        assertNotNull(jwt, "JWT token should not be null after login.");
+        LoginDTO loginDTO = login.getResponseBody();
+        assertNotNull(loginDTO, "Login response should not be null.");
+        String jwt = loginDTO.jwt();
         System.out.println("Login successful for " + email);
         return jwt;
     }

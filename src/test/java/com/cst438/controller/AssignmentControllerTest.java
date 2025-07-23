@@ -12,6 +12,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.EntityExchangeResult;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
+import java.sql.Date;
 import java.util.Objects;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -52,17 +53,49 @@ class AssignmentControllerTest {
                 .expectBody(SectionDTO[].class).returnResult();
         SectionDTO[] sectionList = sections.getResponseBody();
         assertNotNull(sectionList);
-        // print out the sections for debugging
-        System.out.println("Sections for Fall 2025:");
-        for (SectionDTO sdto : sectionList) {
-            System.out.println("Section ID: " + sdto.secId() + ", Course ID: " + sdto.courseId() + ", Instructor Email: " + sdto.instructorEmail());
-        }
+//        // print out the sections for debugging
+//        System.out.println("Sections for Fall 2025:");
+//        for (SectionDTO sdto : sectionList) {
+//            System.out.println("Section ID: " + sdto.secId() + ", Course ID: " + sdto.courseId() + ", Instructor Email: " + sdto.instructorEmail());
+//        }
 
         assertTrue(sectionList.length >= 1, "There should be at least 1 section for the Fall 2025 semester.");
     }
 
     @Test
     void getAssignments() {
+        // Login as instructor Ted
+        String email = "ted@csumb.edu";
+        String password = "ted2025";
+        String ted = login(email, password);
+
+        // Save a new assignment to the assignmentRepository for secNo 1 for testing
+        Section section = sectionRepository.findBySectionNo(1);
+        assertNotNull(section, "Section with secNo 1 should exist for testing.");
+        Assignment a = new Assignment();
+        a.setSection(section);
+        a.setTitle("Test Assignment");
+        // set due date as today for testing
+        a.setDueDate(Date.valueOf(java.time.LocalDate.now()));
+        assignmentRepository.save(a);
+
+        // Verify that the returned assignments for section 1 include the test assignment
+        EntityExchangeResult<AssignmentDTO[]> assignments = client.get().uri("/sections/1/assignments")
+                .headers(headers -> headers.setBearerAuth(ted))
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(AssignmentDTO[].class).returnResult();
+
+        // Assert that the size of the returned list is at least 1
+        AssignmentDTO[] assignmentList = assignments.getResponseBody();
+        assertNotNull(assignmentList);
+        assertTrue(assignmentList.length >=1, "There should be at least 1 assignment for section 1.");
+
+//        // Print out the assignments for debugging
+//        for (AssignmentDTO adto : assignmentList) {
+//            System.out.println("Assignment ID: " + adto.secId() + ", Title: " + adto.title() + ", Due Date: " + adto.dueDate());
+//        }
     }
 
     @Test

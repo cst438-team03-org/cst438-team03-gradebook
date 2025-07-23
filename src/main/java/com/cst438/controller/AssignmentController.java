@@ -8,7 +8,6 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -16,12 +15,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 
 import java.security.Principal;
-import java.sql.Date;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
-
-import static java.util.stream.Collectors.toList;
 
 @RestController
 public class AssignmentController {
@@ -56,7 +51,7 @@ public class AssignmentController {
         User instructor = userRepository.findByEmail(instructorEmail);
 
         // return the Sections that have instructorEmail for the
-        // logged in instructor user for the given term.
+        // logged-in instructor user for the given term.
         List<Section> sections = sectionRepository.findByInstructorEmailAndYearAndSemester(instructorEmail, year, semester);
 
         // If no sections are found, return an empty list
@@ -87,10 +82,33 @@ public class AssignmentController {
     public List<AssignmentDTO> getAssignments(
             @PathVariable("secNo") int secNo,
             Principal principal) {
-        // TODO: List assignments for a section
+
+        String instructorEmail = principal.getName();
+
         // verify that user is the instructor for the section
+        Section section = sectionRepository.findBySectionNo(secNo);
+        if (section == null || !section.getInstructorEmail().equals(instructorEmail)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not authorized to view assignments for this section.");
+        }
+
+        // Find the section by section number
+        List<Assignment> assignments = assignmentRepository.findBySectionNo(secNo);
+
+        // If no sections are found, return an empty list
+        if (assignments.isEmpty()){
+            return new ArrayList<>();
+        }
+
         //  return list of assignments for the Section
-        return null;
+        return assignments.stream()
+                .map(a -> new AssignmentDTO(
+                        a.getAssignmentId(),
+                        a.getTitle(),
+                        a.getDueDate().toString(),
+                        a.getSection().getCourse().getCourseId(),
+                        a.getSection().getSectionId(),
+                        a.getSection().getSectionNo()))
+                .toList();
     }
 
 

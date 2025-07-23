@@ -27,19 +27,19 @@ public class AssignmentController {
     private final AssignmentRepository assignmentRepository;
     private final GradeRepository gradeRepository;
     private final UserRepository userRepository;
-    private final RegistrarServiceProxy registrarServiceProxy;
+    private final RegistrarServiceProxy registrarService;
 
     public AssignmentController(
             SectionRepository sectionRepository,
             AssignmentRepository assignmentRepository,
             GradeRepository gradeRepository,
             UserRepository userRepository,
-            RegistrarServiceProxy registrarServiceProxy) {
+            RegistrarServiceProxy registrarService) {
         this.sectionRepository = sectionRepository;
         this.assignmentRepository = assignmentRepository;
         this.gradeRepository = gradeRepository;
         this.userRepository = userRepository;
-        this.registrarServiceProxy = registrarServiceProxy;
+        this.registrarService = registrarService;
     }
 
     // get Sections for an instructor
@@ -153,7 +153,7 @@ public class AssignmentController {
                 section.getSectionId(),
                 section.getSectionNo()
         );
-        registrarServiceProxy.sendMessage("addAssignment", result);
+        registrarService.sendMessage("addAssignment", result);
         return result;
     }
 
@@ -161,13 +161,37 @@ public class AssignmentController {
     @PutMapping("/assignments")
     @PreAuthorize("hasAuthority('SCOPE_ROLE_INSTRUCTOR')")
     public AssignmentDTO updateAssignment(@Valid @RequestBody AssignmentDTO dto, Principal principal) {
-        // TODO: Update an assignment
-
-        //  update Assignment Entity.  only title and dueDate fields can be changed.
         //  user must be instructor of the Section
-        return null;
-    }
+        String email = principal.getName();
+        Section section = sectionRepository.findBySectionNo(dto.secNo());
+        if (section == null || !section.getInstructorEmail().equals(email)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not authorized to update assignments for this section.");
+        }
 
+        //  update Assignment Entity. only title and dueDate fields can be changed.
+        Assignment assignment = assignmentRepository.findById(dto.id())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Assignment not found"));
+        assignment.setTitle(dto.title());
+        if (dto.dueDate() != null) {
+            Date dueDate = Date.valueOf(dto.dueDate());
+            if (section.getTerm().getStartDate().after(dueDate) || section.getTerm().getEndDate().before(dueDate)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Due date must be within the term's start and end dates.");
+            }
+            assignment.setDueDate(dueDate);
+        }
+        assignmentRepository.save(assignment);
+        //  return AssignmentDTO with database generated primary key
+        AssignmentDTO result = new AssignmentDTO(
+                assignment.getAssignmentId(),
+                assignment.getTitle(),
+                assignment.getDueDate().toString(),
+                section.getCourse().getCourseId(),
+                section.getSectionId(),
+                section.getSectionNo()
+        );
+        registrarService.sendMessage("updateAssignment", result);
+        return result;
+    }
 
     @DeleteMapping("/assignments/{assignmentId}")
     @PreAuthorize("hasAuthority('SCOPE_ROLE_INSTRUCTOR')")

@@ -148,6 +148,77 @@ class AssignmentControllerTest {
 
     @Test
     void updateAssignment() {
+        // Login as instructor Ted
+        String email = "ted@csumb.edu";
+        String password = "ted2025";
+        String ted = login(email, password);
+
+        // Create a valid assignment for section 1
+        AssignmentDTO validAssignment = new AssignmentDTO(0, "Sample Assignment", "2025-10-01", "cst489", 1, 1);
+        EntityExchangeResult<AssignmentDTO> createdAssignment = client.post().uri("/assignments")
+                .headers(headers -> headers.setBearerAuth(ted))
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(validAssignment)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(AssignmentDTO.class).returnResult();
+        int assignmentId = createdAssignment.getResponseBody().id();
+        assertNotEquals(0, assignmentId, "Assignment ID should not be 0 after creation.");
+
+        // Attempt to update an assignment with a nonexistent section
+        AssignmentDTO badSectionAssignment = new AssignmentDTO(assignmentId, "Updated Assignment", "2025-10-15", "cst489", 1, 2);
+        // This should fail because section 2 does not exist
+        client.put().uri("/assignments")
+                .headers(headers -> headers.setBearerAuth(ted))
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(badSectionAssignment)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isBadRequest();
+
+        // Attempt to update a nonexistent assignment
+        AssignmentDTO badAssignment = new AssignmentDTO(9999, "Updated Assignment", "2025-10-15", "cst489", 1, 1);
+        // This should fail because the assignment does not exist
+        client.put().uri("/assignments")
+                .headers(headers -> headers.setBearerAuth(ted))
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(badAssignment)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isBadRequest();
+
+        // Attempt to update an assignment with a due date outside the term's start and end dates
+        AssignmentDTO badDateAssignment = new AssignmentDTO(assignmentId, "Updated Assignment", "1900-01-01", "cst489", 1, 1);
+        // This should fail because the due date is outside the term's start and end dates
+        client.put().uri("/assignments")
+                .headers(headers -> headers.setBearerAuth(ted))
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(badDateAssignment)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isBadRequest();
+
+        // Update the assignment with valid data
+        AssignmentDTO updatedAssignment = new AssignmentDTO(assignmentId, "Updated Assignment", "2025-09-13", "cst489", 1, 1);
+        EntityExchangeResult<AssignmentDTO> updatedResult = client.put().uri("/assignments")
+                .headers(headers -> headers.setBearerAuth(ted))
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(updatedAssignment)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(AssignmentDTO.class).returnResult();
+
+        // check that the sendMessage from gradebook to registrar was called as expected
+        verify(registrarService).sendMessage(eq("updateAssignment"), any());
+
+        // check that the updated assignment exists in the database
+        Assignment updatedEntity = assignmentRepository.findById(updatedResult.getResponseBody().id()).orElse(null);
+        assertNotNull(updatedEntity, "Assignment was updated but not found in the database");
+
+        // Print out the updated assignment for debugging
+//        System.out.println("Updated Assignment ID: " + updatedEntity.getAssignmentId() + ", Title: " + updatedEntity.getTitle() + ", Due Date: " + updatedEntity.getDueDate());
     }
 
     @Test
@@ -170,4 +241,5 @@ class AssignmentControllerTest {
         System.out.println("Login successful for " + email);
         return jwt;
     }
+
 }

@@ -38,7 +38,7 @@ class AssignmentControllerTest {
     RegistrarServiceProxy registrarService;
 
     @Test
-    public void getSectionsForInstructor() throws Exception {
+    public void getSectionsForInstructor(){
         // Login as instructor Ted
         String email = "ted@csumb.edu";
         String password = "ted2025";
@@ -129,20 +129,13 @@ class AssignmentControllerTest {
 
         // Create a valid assignment for section 1
         AssignmentDTO validAssignment = new AssignmentDTO(0, "New Assignment", "2025-10-01", "cst489", 1, 1);
-        EntityExchangeResult<AssignmentDTO> createdAssignment = client.post().uri("/assignments")
-                .headers(headers -> headers.setBearerAuth(ted))
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(validAssignment)
-                .accept(MediaType.APPLICATION_JSON)
-                .exchange()
-                .expectStatus().isOk()
-                .expectBody(AssignmentDTO.class).returnResult();
+        validAssignment = createAssignment(validAssignment, ted);
 
         // check that the sendMessage from gradebook to registrar was called as expected
         verify(registrarService).sendMessage(eq("addAssignment"), any());
 
         // check that the new assignment exists in the database
-        Assignment a = assignmentRepository.findById(createdAssignment.getResponseBody().id()).orElse(null);
+        Assignment a = assignmentRepository.findById(validAssignment.id()).orElse(null);
         assertNotNull(a, "Assignment was added but not found in the database");
     }
 
@@ -155,15 +148,9 @@ class AssignmentControllerTest {
 
         // Create a valid assignment for section 1
         AssignmentDTO validAssignment = new AssignmentDTO(0, "Sample Assignment", "2025-10-01", "cst489", 1, 1);
-        EntityExchangeResult<AssignmentDTO> createdAssignment = client.post().uri("/assignments")
-                .headers(headers -> headers.setBearerAuth(ted))
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(validAssignment)
-                .accept(MediaType.APPLICATION_JSON)
-                .exchange()
-                .expectStatus().isOk()
-                .expectBody(AssignmentDTO.class).returnResult();
-        int assignmentId = createdAssignment.getResponseBody().id();
+        validAssignment = createAssignment(validAssignment, ted);
+
+        int assignmentId = validAssignment.id();
         assertNotEquals(0, assignmentId, "Assignment ID should not be 0 after creation.");
 
         // Attempt to update an assignment with a nonexistent section
@@ -209,12 +196,13 @@ class AssignmentControllerTest {
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody(AssignmentDTO.class).returnResult();
+        updatedAssignment = updatedResult.getResponseBody();
+        assertNotNull(updatedAssignment);
 
         // check that the sendMessage from gradebook to registrar was called as expected
         verify(registrarService).sendMessage(eq("updateAssignment"), any());
 
-        // check that the updated assignment exists in the database
-        Assignment updatedEntity = assignmentRepository.findById(updatedResult.getResponseBody().id()).orElse(null);
+        Assignment updatedEntity = assignmentRepository.findById(updatedAssignment.id()).orElse(null);
         assertNotNull(updatedEntity, "Assignment was updated but not found in the database");
 
         // Print out the updated assignment for debugging
@@ -223,12 +211,48 @@ class AssignmentControllerTest {
 
     @Test
     void deleteAssignment() {
+        // Login as instructor Ted
+        String email = "ted@csumb.edu";
+        String password = "ted2025";
+        String ted = login(email, password);
+        // Create a valid assignment for section 1
+        AssignmentDTO validAssignment = new AssignmentDTO(0, "Assignment to Delete", "2025-10-01", "cst489", 1, 1);
+        validAssignment = createAssignment(validAssignment, ted);
+
+        // Attempt to delete an invalid assignment
+        int nonexistentAssignmentId = 9999;
+        client.delete().uri("/assignments/" + nonexistentAssignmentId)
+                .headers(headers -> headers.setBearerAuth(ted))
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isBadRequest();
+
+        // Delete the valid assignment
+        EntityExchangeResult<AssignmentDTO> deleteAssignment = client.delete().uri("/assignments/" + validAssignment.id())
+                .headers(headers -> headers.setBearerAuth(ted))
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(AssignmentDTO.class).returnResult();
+        // check that the sendMessage from gradebook to registrar was called as expected
+        verify(registrarService).sendMessage(eq("deleteAssignment"), any());
+        // Check that the assignment was deleted
+        Assignment deletedAssignment = assignmentRepository.findById(validAssignment.id()).orElse(null);
+        assertNull(deletedAssignment, "Assignment was deleted but still found in the database");
     }
 
     @Test
     void getStudentAssignments() {
     }
 
+    // Helper methods
+    /**
+     * Login as a user and return the JWT token.
+     * This method assumes that the user exists in the database.
+     * @param email the email of the user
+     * @param password the password of the user
+     * @return the JWT token for the logged-in user
+     */
     private String login(String email, String password) {
         EntityExchangeResult<LoginDTO> login =  client.get().uri("/login")
                 .headers(headers -> headers.setBasicAuth(email, password))
@@ -242,4 +266,21 @@ class AssignmentControllerTest {
         return jwt;
     }
 
+    /**Create a new AssignmentDTO and insert it into the database
+        This method assumes that the section exists and the due date is valid.
+        * @param assignmentDTO the AssignmentDTO to create
+        * @param jwt the JWT token for authentication
+        * @return the created AssignmentDTO with the database generated primary key
+     **/
+    private AssignmentDTO createAssignment(AssignmentDTO assignmentDTO, String jwt) {
+        EntityExchangeResult<AssignmentDTO> result = client.post().uri("/assignments")
+                .headers(headers -> headers.setBearerAuth(jwt))
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(assignmentDTO)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(AssignmentDTO.class).returnResult();
+        return result.getResponseBody();
+    }
 }

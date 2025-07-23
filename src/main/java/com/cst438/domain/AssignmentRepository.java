@@ -1,5 +1,6 @@
 package com.cst438.domain;
 
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.CrudRepository;
 import java.util.List;
@@ -12,4 +13,9 @@ public interface AssignmentRepository extends CrudRepository<Assignment, Integer
     // Method to find assignments by sectionNo
     @Query("select a from Assignment a where a.section.sectionNo = :sectionNo order by a.dueDate")
     List<Assignment> findBySectionNo(int sectionNo);
+
+    // Method to delete assignments by id
+    @Modifying
+    @Query("delete from Assignment a where a.id = :id")
+    void deleteById(int id);
 }

@@ -196,11 +196,18 @@ public class AssignmentController {
     @DeleteMapping("/assignments/{assignmentId}")
     @PreAuthorize("hasAuthority('SCOPE_ROLE_INSTRUCTOR')")
     public void deleteAssignment(@PathVariable("assignmentId") int assignmentId, Principal principal) {
-        // TODO: Delete an assignment
-
         // verify that user is the instructor of the section
+        String email = principal.getName();
+        Assignment assignment = assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Assignment not found"));
+        Section section = assignment.getSection();
+        if (section == null || !section.getInstructorEmail().equals(email)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not authorized to delete assignments for this section.");
+        }
+
         // delete the Assignment entity
-        
+        assignmentRepository.deleteById(assignmentId);
+        registrarService.sendMessage("deleteAssignment", assignmentId);
     }
 
     // student lists their assignments/grades  ordered by due date

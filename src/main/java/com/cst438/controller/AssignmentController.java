@@ -4,6 +4,7 @@ import com.cst438.domain.*;
 import com.cst438.dto.AssignmentDTO;
 import com.cst438.dto.AssignmentStudentDTO;
 import com.cst438.dto.SectionDTO;
+import com.cst438.service.RegistrarServiceProxy;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -15,6 +16,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 
 import java.security.Principal;
+import java.sql.Date;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -25,17 +27,19 @@ public class AssignmentController {
     private final AssignmentRepository assignmentRepository;
     private final GradeRepository gradeRepository;
     private final UserRepository userRepository;
+    private final RegistrarServiceProxy registrarServiceProxy;
 
     public AssignmentController(
             SectionRepository sectionRepository,
             AssignmentRepository assignmentRepository,
             GradeRepository gradeRepository,
-            UserRepository userRepository
-    ) {
+            UserRepository userRepository,
+            RegistrarServiceProxy registrarServiceProxy) {
         this.sectionRepository = sectionRepository;
         this.assignmentRepository = assignmentRepository;
         this.gradeRepository = gradeRepository;
         this.userRepository = userRepository;
+        this.registrarServiceProxy = registrarServiceProxy;
     }
 
     // get Sections for an instructor
@@ -117,14 +121,40 @@ public class AssignmentController {
     public AssignmentDTO createAssignment(
             @Valid @RequestBody AssignmentDTO dto,
             Principal principal) {
-        // TODO: Create an assignment
 
         //  user must be the instructor for the Section
+        String email = principal.getName();
+        Section section = sectionRepository.findBySectionNo(dto.secNo());
+        if (section == null || !section.getInstructorEmail().equals(email)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not authorized to create assignments for this section.");
+        }
+
 		//  check that assignment dueDate is between start date and 
 		//  end date of the term
+        if (dto.dueDate() == null ||
+                section.getTerm().getStartDate().after(Date.valueOf(dto.dueDate())) ||
+                section.getTerm().getEndDate().before(Date.valueOf(dto.dueDate()))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Due date must be within the term's start and end dates.");
+        }
+
 		//  create and save an Assignment entity
+        Assignment assignment = new Assignment();
+        assignment.setTitle(dto.title());
+        assignment.setDueDate(Date.valueOf(dto.dueDate()));
+        assignment.setSection(section);
+        assignmentRepository.save(assignment);
+
         //  return AssignmentDTO with database generated primary key
-        return null;
+        AssignmentDTO result = new AssignmentDTO(
+                assignment.getAssignmentId(),
+                assignment.getTitle(),
+                assignment.getDueDate().toString(),
+                section.getCourse().getCourseId(),
+                section.getSectionId(),
+                section.getSectionNo()
+        );
+        registrarServiceProxy.sendMessage("addAssignment", result);
+        return result;
     }
 
 

@@ -100,6 +100,50 @@ class AssignmentControllerTest {
 
     @Test
     void createAssignment() {
+        // Login as instructor Ted
+        String email = "ted@csumb.edu";
+        String password = "ted2025";
+        String ted = login(email, password);
+
+        // Attempt to create an assignment for a nonexistent section
+        AssignmentDTO badSectionAssignment = new AssignmentDTO(0, "New Assignment", "2025-10-01", "cst489", 1, 2);
+        // This should fail because section 2 does not exist
+        client.post().uri("/assignments")
+                .headers(headers -> headers.setBearerAuth(ted))
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(badSectionAssignment)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isBadRequest();
+
+        // Attempt to create an assignment with a due date outside the term's start and end dates
+        AssignmentDTO badDateAssignment = new AssignmentDTO(0, "New Assignment", "1900-01-01", "cst489", 1, 1);
+        // This should fail because the due date is outside the term's start and end dates
+        client.post().uri("/assignments")
+                .headers(headers -> headers.setBearerAuth(ted))
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(badDateAssignment)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isBadRequest();
+
+        // Create a valid assignment for section 1
+        AssignmentDTO validAssignment = new AssignmentDTO(0, "New Assignment", "2025-10-01", "cst489", 1, 1);
+        EntityExchangeResult<AssignmentDTO> createdAssignment = client.post().uri("/assignments")
+                .headers(headers -> headers.setBearerAuth(ted))
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(validAssignment)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(AssignmentDTO.class).returnResult();
+
+        // check that the sendMessage from gradebook to registrar was called as expected
+        verify(registrarService).sendMessage(eq("addAssignment"), any());
+
+        // check that the new assignment exists in the database
+        Assignment a = assignmentRepository.findById(createdAssignment.getResponseBody().id()).orElse(null);
+        assertNotNull(a, "Assignment was added but not found in the database");
     }
 
     @Test

@@ -153,7 +153,6 @@ public class AssignmentController {
                 section.getSectionId(),
                 section.getSectionNo()
         );
-        registrarService.sendMessage("addAssignment", result);
         return result;
     }
 
@@ -189,7 +188,6 @@ public class AssignmentController {
                 section.getSectionId(),
                 section.getSectionNo()
         );
-        registrarService.sendMessage("updateAssignment", result);
         return result;
     }
 
@@ -207,7 +205,6 @@ public class AssignmentController {
 
         // delete the Assignment entity
         assignmentRepository.deleteById(assignmentId);
-        registrarService.sendMessage("deleteAssignment", assignmentId);
     }
 
     // student lists their assignments/grades ordered by due date
